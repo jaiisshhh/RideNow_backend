@@ -10,6 +10,7 @@ import validator from "validator";
 import { generateOtp } from "../utils/generateotp.js";
 import { sendEmail } from "../utils/sendemail.js";
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
 // ================= Normal SignUp=================
 const registerUser = asynchandler(async (req, res) => {
   const { email, password } = req.body;
@@ -46,16 +47,18 @@ const registerUser = asynchandler(async (req, res) => {
     password,
     otp: hashedOtp,
     otpExpiry,
-    isEmailVerified: false
+    isEmailVerified: false,
   });
 
-  return res.status(201).json(
-    new apiresponse(
-      200,
-      { userId: user._id, email: user.email },
-      "OTP sent to your email. Please verify."
-    )
-  );
+  return res
+    .status(201)
+    .json(
+      new apiresponse(
+        200,
+        { userId: user._id, email: user.email },
+        "OTP sent to your email. Please verify."
+      )
+    );
 });
 
 const verifyOtp = asynchandler(async (req, res) => {
@@ -88,14 +91,21 @@ const verifyOtp = asynchandler(async (req, res) => {
   user.otpExpiry = undefined;
   await user.save();
 
-  return res.status(200).json(
-    new apiresponse(200, null, "Email verified successfully. You can now login.")
-  );
+  return res
+    .status(200)
+    .json(
+      new apiresponse(
+        200,
+        null,
+        "Email verified successfully. You can now login."
+      )
+    );
 });
 // ================= Normal Login =================
 const login = asynchandler(async (req, res) => {
   const { email, password } = req.body;
-  if (!email || !password) throw new apierror(400, "Email and password required");
+  if (!email || !password)
+    throw new apierror(400, "Email and password required");
 
   const user = await User.findOne({ email, authProvider: "local" });
   if (!user) throw new apierror(404, "User not found");
@@ -110,20 +120,19 @@ const login = asynchandler(async (req, res) => {
   await user.save();
 
   return res
-  .cookie("accessToken", accessToken, {
-    httpOnly: true,
-    sameSite: "lax",  // required for cross-site cookies
-    secure: false     // must be false in localhost
-  })
-  .cookie("refreshToken", refreshToken, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: false
-  })
+    .cookie("accessToken", accessToken, {
+      httpOnly: true,
+      sameSite: "lax", // required for cross-site cookies
+      secure: false, // must be false in localhost
+    })
+    .cookie("refreshToken", refreshToken, {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: false,
+    })
     .status(200)
     .json(new apiresponse(200, user, "Login successful"));
 });
-
 
 // ================= Google OAuth Login/Signup =================
 
@@ -147,8 +156,8 @@ const googleLogin = asynchandler(async (req, res) => {
   if (!user) {
     user = await User.create({
       email,
-      fullName: name,
-      avatar: picture,
+      fullName: name, // Note: Web uses fullName
+      avatar: picture, // Note: Web uses avatar
       googleId: googleId,
       authProvider: "google",
       isEmailVerified: true,
@@ -170,26 +179,22 @@ const googleLogin = asynchandler(async (req, res) => {
     .status(200)
     .cookie("accessToken", accessToken, {
       httpOnly: true,
-      sameSite: "lax",  // required for cross-site cookies
-      secure: false     // must be false in localhost
+      sameSite: "lax", // required for cross-site cookies
+      secure: false, // must be false in localhost
     })
     .cookie("refreshToken", refreshToken, {
       httpOnly: true,
       sameSite: "lax",
-      secure: false
+      secure: false,
     })
     .json(
-      new apiresponse(
-        200,
-        { user, accessToken },
-        "User logged in successfully"
-      )
+      new apiresponse(200, { user, accessToken }, "User logged in successfully")
     );
 });
 
 // ================= Refresh Access Token =================
 const refreshAccessToken = asynchandler(async (req, res) => {
-  const refreshToken = req.cookies?.refreshToken;
+  const refreshToken = req.cookies?.refreshToken; // Note: Reads from cookies
   if (!refreshToken) throw new apierror(401, "No refresh token provided");
 
   const decoded = jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET);
@@ -245,9 +250,7 @@ const forgotPassword = asynchandler(async (req, res) => {
 
   await sendEmail(user.email, "Password Reset OTP", `Your OTP is ${otp}`);
 
-  return res
-    .status(200)
-    .json(new apiresponse(200, {}, "OTP sent to email"));
+  return res.status(200).json(new apiresponse(200, {}, "OTP sent to email"));
 });
 
 // ================= Reset Password =================
@@ -293,6 +296,7 @@ const changePassword = asynchandler(async (req, res) => {
     .status(200)
     .json(new apiresponse(200, {}, "Password changed successfully"));
 });
+
 const uploadProfilePhoto = asynchandler(async (req, res) => {
   if (!req.file) throw new apierror(400, "Photo file is required");
 
@@ -307,22 +311,30 @@ const uploadProfilePhoto = asynchandler(async (req, res) => {
 
   return res
     .status(200)
-    .json(new apiresponse(200, { photo: user.profile.photo }, "Profile photo uploaded successfully"));
+    .json(
+      new apiresponse(
+        200,
+        { photo: user.profile.photo },
+        "Profile photo uploaded successfully"
+      )
+    );
 });
+
 const getCurrentUser = asynchandler(async (req, res) => {
   // remove sensitive fields before sending response
-  const user = await User.findById(req.user._id).select("-password -refreshToken");
+  const user = await User.findById(req.user._id).select(
+    "-password -refreshToken"
+  );
 
   if (!user) {
-    return res
-      .status(404)
-      .json(new apiresponse(404, null, "User not found"));
+    return res.status(404).json(new apiresponse(404, null, "User not found"));
   }
 
   return res
     .status(200)
     .json(new apiresponse(200, user, "Current User fetched successfully"));
 });
+
 export {
   uploadProfilePhoto,
   login,
@@ -334,5 +346,5 @@ export {
   changePassword,
   registerUser,
   verifyOtp,
-  getCurrentUser
+  getCurrentUser,
 };
